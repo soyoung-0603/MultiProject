@@ -1,0 +1,31 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.7",
+	"Category": "",
+	"Description": "",
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		},
+		{
+			"Name": "DMXControlConsole",
+			"Enabled": true
+		},
+		{
+			"Name": "DMXEngine",
+			"Enabled": true
+		},
+		{
+			"Name": "DMXFixtures",
+			"Enabled": true
+		},
+		{
+			"Name": "DMXProtocol",
+			"Enabled": true
+		}
+	]
+}
