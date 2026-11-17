@@ -26,10 +26,10 @@ figure{margin:1.25rem 0;background:#f4f9fa;border:1px solid var(--line);padding:
 <li><a href="#section-3">작업별 시작 조건</a></li>
 <li><a href="#section-4">P0 시연에서 줄일 범위</a></li>
 <li><a href="#section-5">11월 18일 시연 증빙과 11월 19일 발표 준비</a></li>
-<li><a href="#section-6">주요 위험과 사용자 결정</a></li></ol></nav><main><h1 id="virtual-performer-studio-cue">Virtual Performer Studio · Cue 시스템 구현 계획</h1><p class="meta">최종 설계 · 모든 작업은 미착수 · 2026년 11월 17일 KST</p>
-<p>11월 18일 KST까지 Studio PIE와 Standalone에서 웹 편집, REFRESH, 오프라인 3 Cue 자동 적용 및 기본 STOP/RESET을 시연한다. 동일 PC의 Unreal MCP는 <code>127.0.0.1:8000</code>, FastAPI는 <code>127.0.0.1:8001</code>이다. C++는 HTTP/JSON·로컬 저장·재생 상태를, 기존 Blueprint는 Studio 런타임을 맡는다. <a href="SDD.html">SDD</a>와 <a href="PRD.html">PRD</a>의 계약을 적용한다.</p>
+<li><a href="#section-6">주요 위험과 사용자 결정</a></li></ol></nav><main><h1 id="virtual-performer-studio-cue">Virtual Performer Studio · Cue 시스템 구현 계획</h1><p class="meta">최종 설계 · 1단계 웹 CueServer 갱신 · 2026년 11월 17일 KST</p>
+<p>11월 18일 KST까지 Studio PIE와 Standalone에서 웹 편집, REFRESH, 오프라인 3 Cue 자동 적용 및 기본 STOP/RESET을 시연한다. Shader Mode는 Operator가 수동으로 전환하며 GO와 RESET은 현재 모드를 유지한다. 동일 PC의 Unreal MCP는 <code>127.0.0.1:8000</code>, FastAPI는 <code>127.0.0.1:8001</code>이다. C++는 HTTP/JSON·로컬 저장·재생 상태를, 기존 Blueprint는 Studio 런타임을 맡는다. <a href="SDD.html">SDD</a>와 <a href="PRD.html">PRD</a>의 계약을 적용한다.</p>
 <h2 id="section-1">작업 경계와 순서</h2>
-<p>아래 변경은 향후 구현 단계의 작업이다. 기존 Git 수정·삭제·미추적 파일을 보존한 격리 사본에서 시작한다. 커밋된 상태만 체크아웃하면 현재 Toon 파일 배치와 UE 5.8 플러그인 설정이 빠질 수 있으므로, 사본과 원래 작업 상태를 비교한다. 기존 Ranking 실습, Original Material/DataTable 및 원본 Level을 보존한다. 표의 신규 코드 경로·클래스·에셋명은 모두 제안이다.</p>
+<p>1단계 웹 CueServer에는 스키마 v2 변경을 반영한다. 후속 Unreal 작업은 기존 Git 수정·삭제·미추적 파일을 보존한 격리 사본에서 시작한다. 커밋된 상태만 체크아웃하면 현재 Toon 파일 배치와 UE 5.8 플러그인 설정이 빠질 수 있으므로, 사본과 원래 작업 상태를 비교한다. 기존 Ranking 실습, Original Material/DataTable 및 원본 Level을 보존한다. 표의 후속 코드 경로·클래스·에셋명은 제안이다.</p>
 <div class="table-wrap" role="region" aria-label="표" tabindex="0"><table>
 <thead>
 <tr>
@@ -53,34 +53,34 @@ figure{margin:1.25rem 0;background:#f4f9fa;border:1px solid var(--line);padding:
 <tr>
 <td>1. 웹 Cue List</td>
 <td>P0</td>
-<td>신규 <code>CueServer/</code>와 API 테스트</td>
-<td>SQLite·Revision·CRUD·다운로드를 연결한다. Show 선택, 목록/Inspector, 위·아래 이동, 복제 초안, 저장 상태·입력 오류, 삭제 확인을 구현한다.</td>
+<td><code>CueServer/</code>, API 테스트, 시연 DB·JSON</td>
+<td>SQLite·Revision·CRUD·다운로드와 Cue List·Inspector를 스키마 v2에 맞춘다. 기존 v1 Cue 열과 Revision 스냅샷을 변환한다.</td>
 <td>없음</td>
-<td>세 Cue 편집 및 정렬 후 서버 재시작. 순서·Revision 유지, 오류 및 키보드 동작 확인.</td>
+<td>변환과 서버 재시작 후 순서·Revision 이력 유지, v2 JSON, 저장 오류 및 키보드 동작 확인.</td>
 </tr>
 <tr>
 <td>2. Unreal 모듈과 캐시</td>
 <td>P0</td>
 <td>격리 사본의 <code>.uproject</code>, 제안 <code>Source/NetworkProject/</code>와 C++ Cue Player</td>
-<td>심플한 HTTP GET, 검증, 임시 파일 교체, 정상 목록 유지와 시작 복원. 서버 결과와 로컬 상태를 별도 제공한다.</td>
+<td>Cue Player의 API Base URL을 변경 가능한 프로젝트 설정으로 추가한다. 기본값은 <code>http://127.0.0.1:8001</code>이다. 설정값으로 HTTP GET을 구성하고 스키마 v2 검증, 임시 파일 교체, 정상 목록 유지와 시작 복원을 구현한다. 서버 결과와 로컬 상태를 별도 제공한다.</td>
 <td>호환 툴체인 확인, Development Editor 빌드와 Editor 재오픈</td>
-<td>REFRESH 성공, 연결 실패/불량 응답/쓰기 실패 뒤 이전 정상본 보존. 재시작 후 로컬 목록 사용.</td>
+<td>기본값과 LAN 시연용 서버 IPv4 설정에서 각각 Show 목록 조회와 REFRESH를 확인한다. 연결 실패/불량 응답/쓰기 실패 뒤 이전 정상본 보존과 재시작 후 로컬 목록 사용을 확인한다.</td>
 </tr>
 <tr>
 <td>3. 기본 GO/STOP/RESET</td>
 <td>P0</td>
 <td>격리 사본의 <code>BP_StudioManager</code>, <code>WBP_Operator</code>, Camera Timeline, 복제 Studio 레벨</td>
 <td>공통 명령, RunId, GO 중복 차단, 완료 결과와 Cue Control UI 상태 연결</td>
-<td>기존 Operator 유지, 카메라 완료/중단, Stage View 자동 해제, 정확한 RESET 상태 연결</td>
-<td>기본 3 Cue의 오프라인 실행, 중복 GO, STOP 즉시, RESET 확인 및 첫 NEXT 복귀.</td>
+<td>기존 Operator 유지, 카메라 완료/중단, Stage View 자동 해제, 현재 모드에서 Standby 적용</td>
+<td>기본 3 Cue의 오프라인 실행, 중복 GO, STOP 즉시, GO·RESET 후 모드 유지, 첫 NEXT 복귀.</td>
 </tr>
 <tr>
 <td>4. Shader/Appearance와 시연 UI</td>
 <td>P0</td>
 <td>격리 사본의 <code>BP_BountyHunter</code>, Operator, Toon Struct/DataTable</td>
-<td>슬롯 및 파라미터 호환표, 수동·Cue 공통 경로, Cue Control의 Preview·진행·MANUAL OVERRIDE 연결</td>
+<td>슬롯 및 파라미터 호환표, 독립 수동 Shader Mode 제어, 현재 모드의 Appearance 조회, 네 값 Preview·진행·MANUAL OVERRIDE 연결</td>
 <td>보이는 보조 Mesh/Outline/MPC, MID 재연결, 다섯 프리셋·지원 의상 값 튜닝</td>
-<td>세 Cue에서 ORIGINAL → TOON → ORIGINAL 자동 왕복. 수동 변경 표시와 RESET 외형 복원. PIE와 Standalone 증빙.</td>
+<td>ORIGINAL → TOON → ORIGINAL 수동 왕복. 각 모드에서 GO·RESET의 프리셋 행을 검증하고 모드 전환만으로 MANUAL OVERRIDE가 바뀌지 않는지 확인한다. PIE와 Standalone 증빙.</td>
 </tr>
 <tr>
 <td>5. 정교한 전환과 복구</td>
@@ -126,9 +126,9 @@ figure{margin:1.25rem 0;background:#f4f9fa;border:1px solid var(--line);padding:
 <h2 id="section-3">작업별 시작 조건</h2>
 <ul class="contains-task-list">
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Studio 기준선</strong> — 현재 변경이 포함된 사본을 확보하고 Studio에서 수동 기능을 확인한다. TestMap의 두 캐릭터를 비교하고 <code>BP_StudioManager.BountyHunterRef</code> 타입, 카메라 완료 핀, Toon의 보조 Mesh를 기록한다.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>첫 작업 단위</strong> — <code>CueServer</code>의 임시 SQLite DB에서 Show 생성 → Cue 3개 추가 → 재정렬 → 재접속 → <code>GET /api/v1/shows/{showId}/cue-list</code> 결과를 검사하는 테스트를 먼저 작성한다. 이 테스트를 통과시키는 스키마 v1·트랜잭션·다운로드 경로를 만들고, 같은 흐름을 웹 UI에 연결한다. 시연 Show와 최종 JSON을 Unreal 쪽 공용 검증 자료로 사용한다.</li>
+<li class="task-list-item"><input checked="checked" disabled="disabled" type="checkbox" /> <strong>첫 작업 단위</strong> — <code>CueServer</code>의 임시 SQLite DB에서 Show 생성 → Cue 3개 추가 → 재정렬 → 재접속 → <code>GET /api/v1/shows/{showId}/cue-list</code>의 v2 결과를 검사한다. v1 DB 변환 및 실패 시 롤백을 검증한다. 시연 Show와 v2 JSON을 Unreal 쪽 공용 검증 자료로 사용한다.</li>
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Unreal 접합</strong> — 공용 JSON을 읽는 캐시 검증부터 통과시킨다. 이어서 Studio와 복제 시연 레벨에서 명령 하나를 수동 UI와 GO 양쪽으로 실행하고 세 Cue로 확장한다. 서버 중단 및 웹 편집 후 REFRESH 전/후를 로그로 비교한다.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Shader</strong> — 우선 <code>Preset_01</code>로 모드 왕복이 가능한 구성을 만들고 <code>Preset_02</code>–<code>05</code>로 확장한다. Face/Body와 실제 보이는 Hair/Goggle의 MID를 검증한다. 목표 값이 없거나 복원에 실패하는 경로도 따로 실행한다.</li>
+<li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Shader</strong> — 우선 <code>Preset_01</code>로 Operator 수동 모드 왕복을 연결하고 <code>Preset_02</code>–<code>05</code>로 확장한다. GO·RESET은 각 모드에서 해당 DataTable의 행을 적용한다. Face/Body와 실제 보이는 Hair/Goggle의 MID를 검증한다. 목표 값이 없거나 복원에 실패하는 경로도 실행한다.</li>
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>P1</strong> — P0 실증 이후 전환 시간 제어, 동시 보간 정교한 취소, 동시 편집 충돌, 고급 캐시 복구를 검증한다. 패키징은 시연 이후에 진행한다.</li>
 </ul>
 <h2 id="section-4">P0 시연에서 줄일 범위</h2>
@@ -148,7 +148,7 @@ figure{margin:1.25rem 0;background:#f4f9fa;border:1px solid var(--line);padding:
 </tr>
 <tr>
 <td>11월 18일 후반</td>
-<td>PIE와 Standalone에서 3회 오프라인 GO, 자동 Shader·Appearance, Stage View 해제, 즉시 STOP·확인 RESET, MANUAL OVERRIDE와 웹 복제를 캡처한다. 서버 요청 기록과 상태 로그를 보관한다.</td>
+<td>PIE와 Standalone에서 3회 오프라인 GO, 수동 Shader Mode 전환, 현재 모드의 Appearance 적용, GO·RESET 후 모드 유지, Stage View 해제, 즉시 STOP·확인 RESET, MANUAL OVERRIDE와 웹 복제를 캡처한다. 서버 요청 기록과 상태 로그를 보관한다.</td>
 </tr>
 <tr>
 <td>11월 19일</td>

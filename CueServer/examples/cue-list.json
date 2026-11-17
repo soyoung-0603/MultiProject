@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "showId": "f872900c-9595-44b7-b312-5c47e45c647b",
+  "showName": "Studio Demo",
+  "revision": 6,
+  "publishedAt": "2026-11-17T05:14:00.807491Z",
+  "cues": [
+    {
+      "number": 10,
+      "name": "Standby",
+      "animationState": "Idle",
+      "cameraState": "Full",
+      "lightingState": "Neutral",
+      "appearancePreset": "Preset_01",
+      "cameraBlendMs": 0,
+      "lightingFadeMs": 0,
+      "id": "e0504f2b-9857-49cf-9d0b-12670cc388db",
+      "position": 1
+    },
+    {
+      "number": 20,
+      "name": "Talk",
+      "animationState": "Talk",
+      "cameraState": "Upper",
+      "lightingState": "Focus",
+      "appearancePreset": "Preset_02",
+      "cameraBlendMs": 1200,
+      "lightingFadeMs": 700,
+      "id": "7b76404a-3675-49c7-bdbf-46c8edbc1ba9",
+      "position": 2
+    },
+    {
+      "number": 30,
+      "name": "Dance",
+      "animationState": "Dance",
+      "cameraState": "Full",
+      "lightingState": "Stage",
+      "appearancePreset": "Preset_03",
+      "cameraBlendMs": 0,
+      "lightingFadeMs": 0,
+      "id": "2617ec08-1a7f-4532-ba25-e6d0181e956d",
+      "position": 3
+    }
+  ]
+}

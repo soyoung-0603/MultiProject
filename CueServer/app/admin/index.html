@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cue 관리자</title>
+  <link rel="stylesheet" href="/static/admin.css">
+  <script src="/static/admin.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="frame topbar-inner">
+      <h1>Cue 관리자</h1>
+      <a href="/docs">API 문서 ↗</a>
+    </div>
+  </header>
+  <main class="frame">
+    <section class="panel show-panel" aria-label="Show 관리">
+      <div class="show-controls">
+        <label class="show-select">Show <select id="show-select" disabled><option>불러오는 중…</option></select></label>
+        <div class="actions">
+          <button id="new-show" type="button" disabled>새 Show</button>
+          <button id="rename-show" type="button" disabled>이름 수정</button>
+          <button id="delete-show" type="button" class="danger" disabled>Show 삭제</button>
+        </div>
+      </div>
+      <div class="show-meta">
+        <span id="revision" class="revision">Revision —</span>
+        <p id="status" role="status" aria-live="polite"><span aria-hidden="true">◌</span> 불러오는 중…</p>
+        <button id="reload" type="button">새로고침</button>
+        <a id="download" hidden download>JSON 다운로드 ↓</a>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section class="panel" aria-labelledby="list-heading">
+        <div class="section-heading">
+          <h2 id="list-heading">Cue List <span id="count" class="count">0</span></h2>
+          <button id="new-cue" type="button" disabled>+ 새 Cue</button>
+        </div>
+        <div class="list-actions actions" aria-label="선택한 Cue의 순서" role="group">
+          <button id="move-up" type="button" disabled>↑ 위로</button>
+          <button id="move-down" type="button" disabled>↓ 아래로</button>
+        </div>
+        <p id="empty">Show를 불러오는 중입니다.</p>
+        <ol id="cue-list" class="cue-list"></ol>
+      </section>
+
+      <section class="panel inspector" aria-labelledby="inspector-heading">
+        <div class="section-heading"><h2 id="inspector-heading">Cue Inspector</h2></div>
+        <p id="inspector-empty">Cue를 선택하거나 새 Cue를 추가하세요.</p>
+        <form id="cue-form" novalidate hidden>
+          <h3 id="cue-heading"></h3>
+          <div id="cue-errors" class="error-summary" role="alert" hidden></div>
+          <fieldset id="cue-fields">
+            <div class="form-grid">
+              <label>번호 <input id="cue-number" name="number" type="number" min="1" max="999999" step="1" required aria-describedby="error-number"><span class="field-error" id="error-number" hidden></span></label>
+              <label>이름 <input id="cue-name" name="name" required aria-describedby="error-name"><span class="field-error" id="error-name" hidden></span></label>
+              <label>Animation <select id="cue-animationState" name="animationState" aria-describedby="error-animationState"><option>Idle</option><option>Talk</option><option>Dance</option></select><span class="field-error" id="error-animationState" hidden></span></label>
+              <label>Camera <select id="cue-cameraState" name="cameraState" aria-describedby="error-cameraState"><option>Full</option><option>Upper</option><option>Close</option></select><span class="field-error" id="error-cameraState" hidden></span></label>
+              <label>Lighting <select id="cue-lightingState" name="lightingState" aria-describedby="error-lightingState"><option>Neutral</option><option>Focus</option><option>Stage</option></select><span class="field-error" id="error-lightingState" hidden></span></label>
+              <label>Appearance <select id="cue-appearancePreset" name="appearancePreset" aria-describedby="error-appearancePreset"><option>Preset_01</option><option>Preset_02</option><option>Preset_03</option><option>Preset_04</option><option>Preset_05</option></select><span class="field-error" id="error-appearancePreset" hidden></span></label>
+            </div>
+            <p class="timing-hint" id="timing-hint">전환 시간은 P1 재생에서 사용합니다.</p>
+            <div class="form-grid">
+              <label>Camera Blend (ms) <input id="cue-cameraBlendMs" name="cameraBlendMs" type="number" min="0" max="30000" step="1" required aria-describedby="timing-hint error-cameraBlendMs"><span class="field-error" id="error-cameraBlendMs" hidden></span></label>
+              <label>Lighting Fade (ms) <input id="cue-lightingFadeMs" name="lightingFadeMs" type="number" min="0" max="30000" step="1" required aria-describedby="timing-hint error-lightingFadeMs"><span class="field-error" id="error-lightingFadeMs" hidden></span></label>
+            </div>
+            <div class="form-actions actions">
+              <button id="save-cue" type="submit" class="primary">Cue 저장</button>
+              <button id="discard-cue" type="button">변경 취소</button>
+              <button id="duplicate-cue" type="button">Cue 복제</button>
+              <button id="delete-cue" type="button" class="danger">Cue 삭제</button>
+            </div>
+          </fieldset>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="show-dialog" aria-labelledby="show-dialog-title">
+    <form id="show-form" novalidate>
+      <h2 id="show-dialog-title">새 Show</h2>
+      <label>Show 이름 <input id="show-name" required autofocus aria-describedby="show-error"></label>
+      <p id="show-error" class="field-error" role="alert" hidden></p>
+      <div class="form-actions actions">
+        <button id="cancel-show" type="button">취소</button>
+        <button id="save-show" class="primary" type="submit">Show 저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="decision" aria-labelledby="decision-title" aria-describedby="decision-message">
+    <form method="dialog">
+      <h2 id="decision-title"></h2>
+      <p id="decision-message"></p>
+      <div class="form-actions actions">
+        <button id="keep-editing" value="cancel" autofocus>취소</button>
+        <button id="discard-choice" value="discard">버리기</button>
+        <button id="save-choice" class="primary" value="save">저장</button>
+        <button id="delete-choice" class="danger" value="delete">삭제</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
