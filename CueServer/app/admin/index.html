@@ -3,19 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cue 관리자</title>
-  <link rel="stylesheet" href="/static/admin.css">
+  <title>Cue Manager · Virtual Performer Studio</title>
+  <link rel="stylesheet" href="/static/admin.css?v=console-20261120-inspector">
   <script src="/static/admin.js" defer></script>
 </head>
 <body>
   <header class="topbar">
     <div class="frame topbar-inner">
-      <h1>Cue 관리자</h1>
-      <a href="/docs">API 문서 ↗</a>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">V<span>/</span>P</span>
+        <div><h1>VIRTUAL PERFORMER STUDIO</h1><p class="eyebrow">CUE MANAGEMENT CONSOLE</p></div>
+      </div>
+      <a class="docs-link" href="/docs">API 문서 <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <main class="frame">
+    <div class="page-heading"><div><p class="eyebrow">SHOW / CUE EDITOR</p><h2>Cue Manager</h2></div><p class="page-description">공연의 순서를 구성하고, 연출을 준비합니다.</p></div>
     <section class="panel show-panel" aria-label="Show 관리">
+      <div class="panel-caption"><span class="section-index">01</span><span>SHOW CONTROL</span></div>
       <div class="show-controls">
         <label class="show-select">Show <select id="show-select" disabled><option>불러오는 중…</option></select></label>
         <div class="actions">
@@ -28,33 +33,34 @@
         <span id="revision" class="revision">Revision —</span>
         <p id="status" role="status" aria-live="polite"><span aria-hidden="true">◌</span> 불러오는 중…</p>
         <button id="reload" type="button">새로고침</button>
-        <a id="download" hidden download>JSON 다운로드 ↓</a>
+        <a id="download" class="download-link" hidden download>JSON 다운로드 <span aria-hidden="true">↓</span></a>
       </div>
     </section>
 
     <div class="workspace">
-      <section class="panel" aria-labelledby="list-heading">
+      <section class="panel list-panel" aria-labelledby="list-heading">
         <div class="section-heading">
-          <h2 id="list-heading">Cue List <span id="count" class="count">0</span></h2>
+          <div class="section-title"><span class="section-index">02</span><h2 id="list-heading">Cue List <span id="count" class="count">0</span></h2></div>
           <button id="new-cue" type="button" disabled>+ 새 Cue</button>
         </div>
-        <div class="list-actions actions" aria-label="선택한 Cue의 순서" role="group">
+        <div class="list-actions actions" aria-label="선택한 Cue의 순서" role="group"><span class="toolbar-label">CUE ORDER</span>
           <button id="move-up" type="button" disabled>↑ 위로</button>
           <button id="move-down" type="button" disabled>↓ 아래로</button>
         </div>
         <p id="empty">Show를 불러오는 중입니다.</p>
         <ol id="cue-list" class="cue-list"></ol>
+        <p class="panel-note">핸들을 드래그하거나 위 · 아래 버튼으로 순서를 변경하세요.</p>
       </section>
 
       <section class="panel inspector" aria-labelledby="inspector-heading">
-        <div class="section-heading"><h2 id="inspector-heading">Cue Inspector</h2></div>
+        <div class="section-heading"><div class="section-title"><span class="section-index">03</span><h2 id="inspector-heading">Cue Inspector</h2></div><span class="panel-tag">EDIT CUE</span></div>
         <p id="inspector-empty">Cue를 선택하거나 새 Cue를 추가하세요.</p>
         <form id="cue-form" novalidate hidden>
-          <h3 id="cue-heading"></h3>
+          <div class="inspector-context"><p class="eyebrow">SELECTED CUE / 선택한 큐</p><h3 id="cue-heading"></h3></div>
           <div id="cue-errors" class="error-summary" role="alert" hidden></div>
           <fieldset id="cue-fields">
             <div class="form-grid">
-              <label>이름 <input id="cue-name" name="name" required aria-describedby="error-name"><span class="field-error" id="error-name" hidden></span></label>
+              <label class="field-wide">이름 <input id="cue-name" name="name" required aria-describedby="error-name"><span class="field-error" id="error-name" hidden></span></label>
               <label>Animation <select id="cue-animationState" name="animationState" aria-describedby="error-animationState"><option>Idle</option><option>Talk</option><option>Dance</option></select><span class="field-error" id="error-animationState" hidden></span></label>
               <label>Camera <select id="cue-cameraState" name="cameraState" aria-describedby="error-cameraState"><option>Full</option><option>Upper</option><option>Close</option><option>Stage</option></select><span class="field-error" id="error-cameraState" hidden></span></label>
               <label>Lighting <select id="cue-lightingState" name="lightingState" aria-describedby="error-lightingState"><option>Neutral</option><option>Focus</option><option>Stage</option></select><span class="field-error" id="error-lightingState" hidden></span></label>
@@ -64,13 +70,14 @@
             <div class="form-actions actions">
               <button id="save-cue" type="submit" class="primary">Cue 저장</button>
               <button id="discard-cue" type="button">변경 취소</button>
-              <button id="duplicate-cue" type="button">Cue 복제</button>
-              <button id="delete-cue" type="button" class="danger">Cue 삭제</button>
+              <button id="duplicate-cue" class="neutral" type="button">Cue 복제</button>
+              <button id="delete-cue" type="button" class="danger inspector-delete">Cue 삭제</button>
             </div>
           </fieldset>
         </form>
       </section>
     </div>
+    <footer class="console-footer"><span>VIRTUAL PERFORMER STUDIO</span><span>SHOW / CUE MANAGEMENT</span></footer>
   </main>
 
   <dialog id="show-dialog" aria-labelledby="show-dialog-title">
