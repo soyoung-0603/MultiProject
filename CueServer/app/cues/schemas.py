@@ -14,7 +14,8 @@ Duration = Annotated[int, Field(strict=True, ge=0, le=30000)]
 Position = Annotated[int, Field(strict=True, ge=1, le=MAX_CUES)]
 RevisionNumber = Annotated[int, Field(strict=True, ge=1, le=MAX_REVISION)]
 Animation = Literal["Idle", "Talk", "Dance"]
-Camera = Literal["Full", "Upper", "Close"]
+# Stage is the Stage View override token, not an Unreal E_CameraState member.
+Camera = Literal["Full", "Upper", "Close", "Stage"]
 Lighting = Literal["Neutral", "Focus", "Stage"]
 Preset = Literal["Preset_01", "Preset_02", "Preset_03", "Preset_04", "Preset_05"]
 
@@ -35,18 +36,17 @@ class ShowRead(ShowName):
 
 
 class CueFields(Payload):
-    number: Number
     name: Name
     animation_state: Animation
     camera_state: Camera
     lighting_state: Lighting
     appearance_preset: Preset
-    camera_blend_ms: Duration
-    lighting_fade_ms: Duration
+    # Compatibility storage only; per-Cue transition controls are outside the current scope.
+    camera_blend_ms: Duration = 0
+    lighting_fade_ms: Duration = 0
 
 
 class CuePatch(Payload):
-    number: Number | None = None
     name: Name | None = None
     animation_state: Animation | None = None
     camera_state: Camera | None = None
@@ -72,6 +72,9 @@ class CuePatch(Payload):
 class CueRead(CueFields):
     id: UUID
     position: Position
+    number: Number
+    camera_blend_ms: Duration
+    lighting_fade_ms: Duration
 
 
 class CueOrder(Payload):

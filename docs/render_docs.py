@@ -31,7 +31,7 @@ def render(source):
         elif line.startswith('#'):
             level = len(line) - len(line.lstrip('#'))
             title = line[level:].strip()
-            anchor = f'section-{len(contents)}' if level == 2 else 'document-title'
+            anchor = f'section-{len(contents)}' if level == 2 else ('document-title' if level == 1 else f'subsection-{index}')
             if level == 2:
                 contents.append((anchor, title))
             body.append(f'<h{level} id="{anchor}">{inline(title)}</h{level}>')

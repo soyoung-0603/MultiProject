@@ -54,18 +54,13 @@
           <div id="cue-errors" class="error-summary" role="alert" hidden></div>
           <fieldset id="cue-fields">
             <div class="form-grid">
-              <label>번호 <input id="cue-number" name="number" type="number" min="1" max="999999" step="1" required aria-describedby="error-number"><span class="field-error" id="error-number" hidden></span></label>
               <label>이름 <input id="cue-name" name="name" required aria-describedby="error-name"><span class="field-error" id="error-name" hidden></span></label>
               <label>Animation <select id="cue-animationState" name="animationState" aria-describedby="error-animationState"><option>Idle</option><option>Talk</option><option>Dance</option></select><span class="field-error" id="error-animationState" hidden></span></label>
-              <label>Camera <select id="cue-cameraState" name="cameraState" aria-describedby="error-cameraState"><option>Full</option><option>Upper</option><option>Close</option></select><span class="field-error" id="error-cameraState" hidden></span></label>
+              <label>Camera <select id="cue-cameraState" name="cameraState" aria-describedby="error-cameraState"><option>Full</option><option>Upper</option><option>Close</option><option>Stage</option></select><span class="field-error" id="error-cameraState" hidden></span></label>
               <label>Lighting <select id="cue-lightingState" name="lightingState" aria-describedby="error-lightingState"><option>Neutral</option><option>Focus</option><option>Stage</option></select><span class="field-error" id="error-lightingState" hidden></span></label>
               <label>Appearance <select id="cue-appearancePreset" name="appearancePreset" aria-describedby="error-appearancePreset"><option>Preset_01</option><option>Preset_02</option><option>Preset_03</option><option>Preset_04</option><option>Preset_05</option></select><span class="field-error" id="error-appearancePreset" hidden></span></label>
             </div>
-            <p class="timing-hint" id="timing-hint">전환 시간은 P1 재생에서 사용합니다.</p>
-            <div class="form-grid">
-              <label>Camera Blend (ms) <input id="cue-cameraBlendMs" name="cameraBlendMs" type="number" min="0" max="30000" step="1" required aria-describedby="timing-hint error-cameraBlendMs"><span class="field-error" id="error-cameraBlendMs" hidden></span></label>
-              <label>Lighting Fade (ms) <input id="cue-lightingFadeMs" name="lightingFadeMs" type="number" min="0" max="30000" step="1" required aria-describedby="timing-hint error-lightingFadeMs"><span class="field-error" id="error-lightingFadeMs" hidden></span></label>
-            </div>
+            <p class="timing-hint">Cue 번호는 목록 순서에 따라 001부터 자동 지정됩니다.</p>
             <div class="form-actions actions">
               <button id="save-cue" type="submit" class="primary">Cue 저장</button>
               <button id="discard-cue" type="button">변경 취소</button>

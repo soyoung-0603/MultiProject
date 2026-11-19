@@ -111,20 +111,15 @@ def delete_show(session, show_id):
         publish(session, show)
 
 
-def check_number(session, show, number, current_id=None):
-    existing_id = session.scalar(select(Cue.id).where(Cue.show_id == show.id, Cue.number == number))
-    if existing_id is not None and existing_id != current_id:
-        raise CueError(409, "duplicate_number", "이 번호는 사용 중입니다. 다른 번호를 입력하세요.", "number")
-
-
 def create_cue(session, show_id, data):
     with write(session):
         show = get_show(session, show_id)
-        position = len(ordered_cues(session, show)) + 1
+        cues = ordered_cues(session, show)
+        position = len(cues) + 1
         if position > MAX_CUES:
             raise CueError(422, "cue_limit", "Show당 Cue는 최대 1,000개입니다.")
-        check_number(session, show, data.number)
-        cue = Cue(id=str(uuid4()), show_id=show.id, position=position, **data.model_dump())
+        assign_order(session, cues)
+        cue = Cue(id=str(uuid4()), show_id=show.id, position=position, number=position, **data.model_dump())
         session.add(cue)
         publish(session, show)
         return read_cue(cue)
@@ -135,8 +130,6 @@ def update_cue(session, show_id, cue_id, data):
         show = get_show(session, show_id)
         cue = get_cue(session, show, cue_id)
         changes = data.model_dump(exclude_unset=True)
-        if "number" in changes:
-            check_number(session, show, changes["number"], cue.id)
         for field, value in changes.items():
             setattr(cue, field, value)
         publish(session, show)
@@ -144,13 +137,16 @@ def update_cue(session, show_id, cue_id, data):
 
 
 def assign_order(session, cues):
-    # Temporary negative positions keep the unique constraint valid during swaps.
-    moved = [(position, cue) for position, cue in enumerate(cues, 1) if cue.position != position]
+    # Stage both unique columns before swaps; the display number always follows position.
+    moved = [(position, cue) for position, cue in enumerate(cues, 1)
+             if cue.position != position or cue.number != position]
     for position, cue in moved:
         cue.position = -position
+        cue.number = -position
     session.flush()
     for position, cue in moved:
         cue.position = position
+        cue.number = position
 
 
 def delete_cue(session, show_id, cue_id):

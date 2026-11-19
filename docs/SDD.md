@@ -24,7 +24,7 @@ RankingSubsystem(실습 WebAPIUnreal)의 UGameInstanceSubsystem, FHttpModule, Bi
 
 ## 기존 서버 계약
 
-기본 주소는 http://127.0.0.1:8001, MCP는 127.0.0.1:8000이다. 이번 작업은 CueServer 코드·DB 구조·기존 Show/Cue를 변경하지 않는다. demo.sqlite3으로 전환하거나 기존 방송 순서를 번호순으로 재작성하지 않는다.
+기본 주소는 http://127.0.0.1:8001, MCP는 127.0.0.1:8000이다. 11월 18일 C++ 기반 단계는 CueServer를 보존했다. 11월 19일 추가 변경은 서버·웹의 번호 정책만 수정하며 DB 테이블 구조와 기존 Show/Cue ID·연출을 보존한다. demo.sqlite3으로 전환하거나 기존 방송 순서를 번호순으로 재작성하지 않는다.
 
 | API | 용도 |
 |---|---|
@@ -48,12 +48,12 @@ RankingSubsystem(실습 WebAPIUnreal)의 UGameInstanceSubsystem, FHttpModule, Bi
 | PUT `/shows/{showId}/cue-order` | `{cueIds:[...]}`에 현재 Show 내 모든 ID를 중복 없이 완전한 순열로 제공한다. |
 | GET `/shows/{showId}/cue-list` | 현재 발행된 스키마 v2 스냅샷. P1에서는 스키마 버전·Show ID·Revision으로 `ETag`를 구성하고 일치하는 `If-None-Match`에 304를 반환한다. |
 
-P0의 모든 변경은 Revision을 증가시킨다. P1에서 수정·삭제·순서 변경과 Cue 생성에 Show `If-Match`를 요구한다. 누락은 428, 충돌은 412이며 412에서는 재조회 후 변경을 다시 적용할지 편집자가 선택한다. 미존재 404, 번호 중복 409, 검증 실패 422, 저장 불가 503은 P0에서 처리한다. 오류 응답은 `{"code":"invalid_cue","message":"…","fieldErrors":[]}` 형식으로 제공하며 UI는 읽기 쉬운 메시지를 표시한다.
+P0의 모든 변경은 Revision을 증가시킨다. P1에서 수정·삭제·순서 변경과 Cue 생성에 Show `If-Match`를 요구한다. 누락은 428, 충돌은 412이며 412에서는 재조회 후 변경을 다시 적용할지 편집자가 선택한다. 미존재 404, 검증 실패 422, 저장 불가 503은 P0에서 처리한다. 오류 응답은 `{"code":"invalid_cue","message":"…","fieldErrors":[]}` 형식으로 제공하며 UI는 읽기 쉬운 메시지를 표시한다.
 
 | 테이블 | 키와 저장 규칙 |
 |---|---|
 | Show | `id PK, name, current_revision, created_at, updated_at, deleted_at`. 이름 1–100자. |
-| Cue | `id PK, show_id FK, position, number, name, animation_state, camera_state, lighting_state, appearance_preset, camera_blend_ms, lighting_fade_ms`. Show 안에서 position과 number는 각각 유일하다. |
+| Cue | `id PK, show_id FK, position, number, name, animation_state, camera_state, lighting_state, appearance_preset, camera_blend_ms, lighting_fade_ms`. Show 안에서 position과 number는 각각 유일하며 현재 데이터는 number = position이다. |
 | Revision | `(show_id, revision) PK, created_at, snapshot_json, is_deleted`. 변경 당시 Show 이름과 순서 있는 Cue를 저장한다. 삭제 이력과 예전 스냅샷을 유지한다. |
 
 SQLite 외래 키를 활성화한다. 입력 검증 → 변경·순서 재배치 → Revision 증가 → 스냅샷 저장을 한 트랜잭션으로 처리한다. 순서 갱신은 충돌을 피하도록 임시 위치를 거친다. P1의 Revision 비교도 같은 트랜잭션에서 실행한다. 복제는 Inspector에서 초안을 만들고 저장 시 기존 Cue 생성 API를 사용한다. 서버 시작 시 기존 v1 DB의 Cue 열과 모든 Revision 스냅샷에서 Shader Mode를 제거하고 v2로 변환한다. 이 변환은 한 트랜잭션으로 수행하며 ID, 순서, Revision 번호, 발행 시각과 삭제 이력을 유지한다. 변환 이후 다운로드는 발행된 단일 Revision을 읽고 실패한 변경은 롤백한다.
@@ -83,7 +83,7 @@ SQLite 외래 키를 활성화한다. 입력 검증 → 변경·순서 재배치
           "number": {"type": "integer", "minimum": 1, "maximum": 999999},
           "name": {"type": "string", "minLength": 1, "maxLength": 100},
           "animationState": {"enum": ["Idle", "Talk", "Dance"]},
-          "cameraState": {"enum": ["Full", "Upper", "Close"]},
+          "cameraState": {"enum": ["Full", "Upper", "Close", "Stage"]},
           "lightingState": {"enum": ["Neutral", "Focus", "Stage"]},
           "appearancePreset": {"enum": ["Preset_01", "Preset_02", "Preset_03", "Preset_04", "Preset_05"]},
           "cameraBlendMs": {"type": "integer", "minimum": 0, "maximum": 30000},
@@ -97,7 +97,7 @@ SQLite 외래 키를 활성화한다. 입력 검증 → 변경·순서 재배치
 
 필드명과 Enum은 대소문자를 구분한다. 추가 필드·필수 필드 누락·null·bool을 숫자로 해석하지 않는다. 이름 길이는 UTF-16 단위가 아닌 Unicode 코드 포인트로 센다. 타임스탬프는 전체 RFC3339 형식과 UTC 오프셋을 직접 검증하며 엔진의 느슨한 날짜 파서에 맡기지 않는다. 정수는 유한한 값이며 소수/문자열을 암묵 변환하지 않는다. UUID와 ISO 8601 날짜를 검증한다. 이름은 공백만으로 구성될 수 없다. 요청한 Show ID와 응답 Show ID가 일치해야 한다.
 
-position은 배열에서 1부터 연속이고 Cue ID·Number는 유일해야 한다. Number로 정렬하지 않는다. 빈 Cue 배열은 유효한 스냅샷이지만 실행할 Cue는 없다. 전체 파싱이 성공하기 전에는 출력 구조체를 교체하지 않는다.
+position은 배열에서 1부터 연속이고 Cue ID·Number는 유일해야 한다. 현재 서버는 Number를 Position과 같게 생성한다. C++는 기존 캐시 호환을 위해 과거 독립 Number도 계속 읽는다. Number로 정렬하지 않는다. 빈 Cue 배열은 유효한 스냅샷이지만 실행할 Cue는 없다. 전체 파싱이 성공하기 전에는 출력 구조체를 교체하지 않는다.
 
 ## C++ 구성과 Blueprint 계약
 
@@ -144,3 +144,29 @@ Stage View 선행 해제, 이동·제스처 제한, 카메라 Timeline 완료·�
 첫 빌드는 사용자가 Save All 후 Editor를 직접 종료한 뒤 실행한다. UHT와 Development Editor Win64 빌드 및 native automation 결과를 보고한다. 실제 WBP wiring·Studio PIE/Standalone 연출·송출·패키징은 별도 검증이다. 서버와 UI 기능을 구현했다는 것만으로 전체 방송 시연 성공을 주장하지 않는다.
 
 관련 문서 [PRD](PRD.md) · [구현 계획](ImplementationPlan.md) · [Blueprint 연결 안내](BlueprintIntegration.md)
+
+## 추가 변경: Cue 자동 번호 (2026년 11월 19일 KST)
+
+Cue 번호의 최종 정책은 1부터 연속 증가다. 서버가 현재 Position 순서대로 number = position을 저장하고 응답한다. 웹 화면은 최소 3자리(001, 002, 003)로 표시하며 1000 이상도 자르지 않는다. 010/020/030처럼 10씩 증가하는 정책은 사용하지 않는다.
+
+웹 생성·수정·복제 초안에는 번호 입력이 없다. 추가·삭제·드래그/버튼 정렬 후 모든 번호를 다시 지정하고 서버 재조회 결과를 표시한다. 식별과 선택·정렬 요청은 UUID를 사용한다. ID·이름·Animation/Camera/Lighting/Appearance·Blend/Fade는 번호 변경으로 바뀌지 않는다.
+
+POST/PATCH 입력에서 number를 제거하고 직접 입력은 422로 거절한다. GET 응답의 정수 number, schemaVersion 2, 기존 DB 테이블·UUID 구조는 유지한다. 두 UNIQUE 열은 트랜잭션 안에서 임시 음수로 옮긴 뒤 연속 Position/Number를 확정한다. 전체 실패는 롤백한다.
+
+기존 데이터는 시작 시 저장된 순서대로 전환하며 영향받은 Show만 새 Revision을 발행한다. 과거 v2 Revision은 그대로 보존하고 다음 재시작에는 다시 발행하지 않는다. 구형 v1 스키마 변환과도 같은 트랜잭션으로 처리한다. 운영 DB는 전환 전에 별도로 백업한다.
+
+Unreal의 CueData.Number는 계속 Integer다. 기존 Blueprint의 최소 3자리 표시는 유지하고 새 REFRESH 후 GO 001/002/003에 사용할 수 있다. 이전 로컬 스냅샷의 번호와 과거 Number/Position 독립 파싱 호환성은 유지한다. 기존 Blueprint/Map/Material/DataTable/C++는 이번 변경에서 수정하지 않는다.
+
+## Camera Stage 및 전환 UI 범위 변경 (2026년 11월 19일 KST)
+
+웹·서버 Camera 선택지는 Full / Upper / Close / Stage다. 기존 cameraState 필드에 Stage 문자열을 저장·반환한다. Stage는 Unreal의 별도 Stage View Override이며 E_CameraState에 Stage를 추가하거나 Camera DataTable을 변경하지 않는다. Full/Upper/Close의 의미와 기존 자동 번호·정렬·GO 구조는 유지한다.
+
+Cue는 Animation·Camera·Lighting·Appearance 목표 상태에 집중한다. Cue별 Camera Blend, Lighting Fade, Blend/Fade Duration, Transition Time의 입력 UI와 지정 시간 실행은 이번 개발 범위 및 완료 기준에서 제외한다. 이전 문서의 P1 시간 제어 계획은 이번 범위에 포함되지 않는다. 정상 동작하는 Studio 카메라·조명·Timeline을 삭제하거나 리팩터링하지 않는다.
+
+DB와 schema v2 응답의 cameraBlendMs/lightingFadeMs는 호환성을 위해 계속 저장·반환한다. 생성에서 생략 시 0, 수정에서 생략 시 기존 값 보존, 복제 시 원본 시간 값 보존으로 처리한다. 웹에서는 두 값을 입력하거나 수정하지 않는다. 기존 Cue ID·연출·순서·자동 Number와 Revision 이력을 임의로 바꾸지 않는다.
+
+### Unreal 후속 연결 — 이번 웹·서버 작업에는 미포함
+
+현재 Source/NetworkProject/Private/CueJson.cpp의 Camera 허용 목록은 Full/Upper/Close다. Stage를 추가하기 전에는 Stage Cue가 포함된 REFRESH가 스키마 검증에서 거절된다. 다음 Unreal 작업에서 C++ 허용 목록에 문자열 Stage를 추가해야 한다. 이는 데이터 파싱 변경이며 E_CameraState Enum 추가가 아니다.
+
+그 후 Blueprint는 CameraState(Name) == Stage를 먼저 분기해 별도 Stage View를 활성화한다. Full/Upper/Close는 Stage View를 해제하고 기존 Enum·함수로 처리한다. 기존 Cue RESET, GO, Shader Mode 처리와 시간 보간은 이번 변경에서 연결하거나 완료로 판정하지 않는다. 이번에는 Unreal Source와 .uasset을 수정하지 않았다.

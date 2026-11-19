@@ -13,7 +13,6 @@ from app.main import create_app
 
 SHOWS = "/api/v1/shows"
 CUE_FIELDS = {
-    "number": 10,
     "name": "Standby",
     "animationState": "Idle",
     "cameraState": "Full",
@@ -49,9 +48,9 @@ def test_snapshot_survives_reopen(tmp_path):
     db = tmp_path / "cues.sqlite3"
     with TestClient(create_app(db)) as client:
         show = create_show(client, "Studio Demo")
-        first = create_cue(client, show, number=10)
-        second = create_cue(client, show, number=20, appearancePreset="Preset_02", cameraBlendMs=1500)
-        third = create_cue(client, show, number=30, animationState="Dance", lightingFadeMs=30000)
+        first = create_cue(client, show)
+        second = create_cue(client, show, appearancePreset="Preset_02", cameraBlendMs=1500)
+        third = create_cue(client, show, animationState="Dance", lightingFadeMs=30000)
         order = [second["id"], third["id"], first["id"]]
         response = client.put(f"{show}/cue-order", json={"cueIds": order})
         assert response.status_code == 200
@@ -66,9 +65,9 @@ def test_snapshot_survives_reopen(tmp_path):
         assert snapshot["revision"] == 5
         assert datetime.fromisoformat(snapshot["publishedAt"]).utcoffset().total_seconds() == 0
         assert snapshot["cues"] == [
-            cue | {"position": position} for position, cue in enumerate((second, third, first), 1)
+            cue | {"position": position, "number": position} for position, cue in enumerate((second, third, first), 1)
         ]
-        assert set(first) == {*CUE_FIELDS, "position", "id"}
+        assert set(first) == {*CUE_FIELDS, "number", "position", "id"}
         UUID(first["id"])
 
     with TestClient(create_app(db)) as restarted:
@@ -83,7 +82,7 @@ def test_show_and_cue_crud_with_tombstone(client):
     assert client.get(f"{show}/cue-list").json()["cues"] == []
     assert client.patch(show, json={"name": "Rehearsal"}).json()["revision"] == 2
     first = create_cue(client, show)
-    second = create_cue(client, show, number=20)
+    second = create_cue(client, show)
     first_url = f"{show}/cues/{first['id']}"
     second_url = f"{show}/cues/{second['id']}"
 
@@ -93,7 +92,7 @@ def test_show_and_cue_crud_with_tombstone(client):
     assert edited.json() == first | {"name": "Edited", "lightingFadeMs": 800}
     assert client.delete(first_url).status_code == 204
     assert client.get(first_url).status_code == 404
-    assert client.get(second_url).json() == second | {"position": 1}
+    assert client.get(second_url).json() == second | {"position": 1, "number": 1}
     published = client.get(f"{show}/cue-list").json()
     assert published["revision"] == 6
     assert published["showName"] == "Rehearsal"
@@ -131,18 +130,18 @@ def test_invalid_fields_leave_revision_unchanged(client, field, value):
     assert client.get(f"{show}/cue-list").json()["revision"] == 1
 
 
-def test_invalid_requests_and_number_conflict(client):
+def test_invalid_requests_and_read_only_number(client):
     assert client.post(SHOWS, json={"name": "  "}).status_code == 422
     assert client.get(f"{SHOWS}/not-a-uuid").status_code == 422
     assert client.get(f"{SHOWS}/{uuid4()}").status_code == 404
     show = create_show(client)
     first = create_cue(client, show)
-    second = create_cue(client, show, number=20)
+    second = create_cue(client, show)
     other = create_cue(client, create_show(client))
     url = f"{show}/cues/{second['id']}"
     baseline = client.get(f"{show}/cue-list").content
-    for response in (client.post(f"{show}/cues", json=CUE_FIELDS), client.patch(url, json={"number": 10})):
-        assert response.status_code == 409
+    for response in (client.post(f"{show}/cues", json=CUE_FIELDS | {"number": 1}), client.patch(url, json={"number": 1})):
+        assert response.status_code == 422
         assert response.json()["fieldErrors"][0]["field"] == "number"
     assert client.patch(url, json={"name": None}).status_code == 422
     assert client.patch(url, json={}).status_code == 422
@@ -161,7 +160,7 @@ def test_invalid_requests_and_number_conflict(client):
 def test_revision_write_failure_rolls_back_changes(client):
     show = create_show(client)
     first = create_cue(client, show)
-    second = create_cue(client, show, number=20)
+    second = create_cue(client, show)
     baseline = client.get(f"{show}/cue-list").content
     with client.app.state.engine.begin() as connection:
         assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
@@ -183,15 +182,16 @@ def test_revision_write_failure_rolls_back_changes(client):
 def test_simultaneous_writes_publish_complete_revisions(client):
     show = create_show(client)
 
-    def submit(number):
-        return client.post(f"{show}/cues", json=CUE_FIELDS | {"number": number}).status_code
+    def submit(name):
+        return client.post(f"{show}/cues", json=CUE_FIELDS | {"name": name}).status_code
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        assert sorted(pool.map(submit, (10, 20, 10))) == [201, 201, 409]
+        assert list(pool.map(submit, ("First", "Second", "Third"))) == [201, 201, 201]
     snapshot = client.get(f"{show}/cue-list").json()
-    assert snapshot["revision"] == 3
-    assert sorted(cue["number"] for cue in snapshot["cues"]) == [10, 20]
-    assert [cue["position"] for cue in snapshot["cues"]] == [1, 2]
+    assert snapshot["revision"] == 4
+    assert [cue["number"] for cue in snapshot["cues"]] == [1, 2, 3]
+    assert [cue["position"] for cue in snapshot["cues"]] == [1, 2, 3]
+    assert len({cue["id"] for cue in snapshot["cues"]}) == 3
 
 
 def test_same_origin_admin_and_openapi(client):
@@ -223,7 +223,7 @@ def legacy_db(tmp_path):
     with TestClient(create_app(db)) as client:
         active = create_show(client, "Active")
         first = create_cue(client, active)
-        second = create_cue(client, active, number=20, appearancePreset="Preset_02")
+        second = create_cue(client, active, appearancePreset="Preset_02")
         assert client.put(f"{active}/cue-order", json={"cueIds": [second["id"], first["id"]]}).status_code == 200
         deleted = create_show(client, "Deleted")
         create_cue(client, deleted)
@@ -231,12 +231,12 @@ def legacy_db(tmp_path):
 
     with sqlite3.connect(db) as connection:
         connection.execute("ALTER TABLE cues ADD COLUMN shader_mode TEXT NOT NULL DEFAULT 'ORIGINAL'")
-        connection.execute("UPDATE cues SET shader_mode = 'TOON' WHERE number = 20")
+        connection.execute("UPDATE cues SET shader_mode = 'TOON' WHERE number = 2")
         for show_id, revision, _, body, _ in read_history(connection):
             snapshot = json.loads(body)
             snapshot["schemaVersion"] = 1
             for cue in snapshot["cues"]:
-                cue["shaderMode"] = "TOON" if cue["number"] == 20 else "ORIGINAL"
+                cue["shaderMode"] = "TOON" if cue["number"] == 2 else "ORIGINAL"
             connection.execute("UPDATE revisions SET snapshot_json = ? WHERE show_id = ? AND revision = ?",
                                (json.dumps(snapshot), show_id, revision))
         history = read_history(connection)
@@ -249,7 +249,7 @@ def test_upgrade_preserves_active_and_deleted_history(legacy_db):
         migrated = client.get(f"{active}/cue-list").json()
         assert migrated["schemaVersion"] == 2
         assert migrated["revision"] == 4
-        assert [cue["number"] for cue in migrated["cues"]] == [20, 10]
+        assert [cue["number"] for cue in migrated["cues"]] == [1, 2]
         assert client.get(active).json()["cues"] == migrated["cues"]
         assert client.get(f"{deleted}/cue-list").status_code == 404
 
@@ -268,7 +268,7 @@ def test_upgrade_preserves_active_and_deleted_history(legacy_db):
 
     with TestClient(create_app(db)) as restarted:
         assert restarted.get(f"{active}/cue-list").json() == migrated
-        assert create_cue(restarted, active, number=30)["position"] == 3
+        assert create_cue(restarted, active)["position"] == 3
         assert restarted.get(active).json()["revision"] == 5
 
 

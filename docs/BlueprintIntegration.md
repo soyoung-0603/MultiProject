@@ -138,7 +138,7 @@ OnSnapshotChanged(Has Snapshot, Snapshot)
          False: 비어 있는 Show 표시, NEXT 없음
 ```
 
-실제 AddCueItem 입력 이름은 현재 그래프에서 **CueNember**로 확인됐다. 출력 핀 이름은 CueItem이며 타입은 WBP_CueItem Object Reference다. 기존 InitializeCueItem은 CueNumber 정수를 3자리 표시로 변환하므로 010 문자열을 별도로 만들 필요 없다. CueNumber가 아니라 **Position 순서 배열**을 순회한다. REFRESH 성공마다 Clear Children 후 다시 만들어 중복을 방지한다. 실패 REFRESH에서 목록을 지우지 않는다.
+실제 AddCueItem 입력 이름은 현재 그래프에서 **CueNember**로 확인됐다. 출력 핀 이름은 CueItem이며 타입은 WBP_CueItem Object Reference다. 기존 InitializeCueItem은 CueNumber 정수를 3자리 표시로 변환하므로 001 문자열을 별도로 만들 필요 없다. 서버가 현재 Position에 따라 1, 2, 3을 자동 부여하며 기존 3자리 표시는 그대로 사용한다. CueNumber가 아니라 **Position 순서 배열**을 순회한다. REFRESH 성공마다 Clear Children 후 다시 만들어 중복을 방지한다. 실패 REFRESH에서 목록을 지우지 않는다.
 
 새로 받은 첫 항목의 Next 표시는 초기 Preview다. 아직 실행 커서나 실제 GO가 구현된 것이 아니다. 실행 완료 전 Applied로 바꾸거나 GO/STOP/RESET을 연결 완료로 표시하지 않는다.
 
@@ -167,3 +167,17 @@ Editor를 Save All 후 종료한 상태에서 PowerShell로 Tests/run_cue_tests.
 기본 fixture 포트는 18081로 기존 CueServer 8001과 다르다. -Port로 테스트 포트만 바꿀 수 있다. 테스트 캐시는 Saved/Automation 하위의 임시 UUID 디렉터리다. 기존 Saved/CuePlayer 스냅샷을 테스트 데이터로 덮어쓰지 않는다. 일부 Unreal TestExit는 실패해도 OS 종료 코드 0을 반환하므로 스크립트는 report의 실패/미실행 수까지 검사한다.
 
 관련 문서 [PRD](PRD.md) · [SDD](SDD.md) · [구현 계획](ImplementationPlan.md)
+
+## Camera Stage 및 전환 UI 범위 변경 (2026년 11월 19일 KST)
+
+웹·서버 Camera 선택지는 Full / Upper / Close / Stage다. 기존 cameraState 필드에 Stage 문자열을 저장·반환한다. Stage는 Unreal의 별도 Stage View Override이며 E_CameraState에 Stage를 추가하거나 Camera DataTable을 변경하지 않는다. Full/Upper/Close의 의미와 기존 자동 번호·정렬·GO 구조는 유지한다.
+
+Cue는 Animation·Camera·Lighting·Appearance 목표 상태에 집중한다. Cue별 Camera Blend, Lighting Fade, Blend/Fade Duration, Transition Time의 입력 UI와 지정 시간 실행은 이번 개발 범위 및 완료 기준에서 제외한다. 이전 문서의 P1 시간 제어 계획은 이번 범위에 포함되지 않는다. 정상 동작하는 Studio 카메라·조명·Timeline을 삭제하거나 리팩터링하지 않는다.
+
+DB와 schema v2 응답의 cameraBlendMs/lightingFadeMs는 호환성을 위해 계속 저장·반환한다. 생성에서 생략 시 0, 수정에서 생략 시 기존 값 보존, 복제 시 원본 시간 값 보존으로 처리한다. 웹에서는 두 값을 입력하거나 수정하지 않는다. 기존 Cue ID·연출·순서·자동 Number와 Revision 이력을 임의로 바꾸지 않는다.
+
+### Unreal 후속 연결 — 이번 웹·서버 작업에는 미포함
+
+현재 Source/NetworkProject/Private/CueJson.cpp의 Camera 허용 목록은 Full/Upper/Close다. Stage를 추가하기 전에는 Stage Cue가 포함된 REFRESH가 스키마 검증에서 거절된다. 다음 Unreal 작업에서 C++ 허용 목록에 문자열 Stage를 추가해야 한다. 이는 데이터 파싱 변경이며 E_CameraState Enum 추가가 아니다.
+
+그 후 Blueprint는 CameraState(Name) == Stage를 먼저 분기해 별도 Stage View를 활성화한다. Full/Upper/Close는 Stage View를 해제하고 기존 Enum·함수로 처리한다. 기존 Cue RESET, GO, Shader Mode 처리와 시간 보간은 이번 변경에서 연결하거나 완료로 판정하지 않는다. 이번에는 Unreal Source와 .uasset을 수정하지 않았다.

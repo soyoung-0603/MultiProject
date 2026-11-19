@@ -13,10 +13,10 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8001
 ```
 
-- [Cue 관리자](http://127.0.0.1:8001/admin)에서 Show를 만들고 Cue를 추가합니다. 번호는 표시용이며 **위로 / 아래로** 버튼으로 실행 순서를 변경합니다. **Cue 복제**는 제안 번호가 들어간 초안을 엽니다.
+- [Cue 관리자](http://127.0.0.1:8001/admin)에서 Show를 만들고 Cue를 추가합니다. 번호는 현재 Position에 따라 서버가 1부터 자동 지정합니다. 화면에는 최소 세 자리(001, 002, 003)로 표시하며 1000 이상도 자르지 않습니다. **위로 / 아래로**와 드래그 정렬을 유지하며, 추가·삭제·정렬 후 전체 번호를 다시 맞춥니다. **Cue 복제**는 연출 값을 담은 새 초안을 만들고 저장 시 새 ID와 마지막 번호를 받습니다.
 - [Swagger UI](http://127.0.0.1:8001/docs)에서 API를 확인합니다. `GET /api/v1/shows/{showId}/cue-list`는 현재 발행된 스키마 v2 JSON을 반환합니다. 관리자의 **JSON 다운로드**로 같은 응답을 저장할 수 있습니다.
 - 기본 DB는 `data/cues.sqlite3`입니다. 별도 DB를 사용하려면 `CUE_DB_PATH`에 파일 경로를 지정하고 실행합니다. 관리자에서 편집한 Show와 Cue는 이 DB 파일에 유지됩니다.
-- 기존 v1 DB는 서버 시작 시 Cue 테이블과 모든 Revision 스냅샷에서 Shader Mode를 제거하고 v2로 변환합니다. Show/Cue ID, 순서, Revision 번호, 발행 시각, 삭제 이력을 유지합니다. 로컬 시연 Show는 `CUE_DB_PATH`를 `data/demo.sqlite3`으로 지정해 열 수 있습니다.
+- 기존 v1 DB는 서버 시작 시 Cue 테이블과 모든 Revision 스냅샷에서 Shader Mode를 제거하고 v2로 변환합니다. Show/Cue ID와 순서, 과거 Revision·발행 시각·삭제 이력을 보존합니다. 번호 정책 전환은 아래 규칙을 따릅니다. 로컬 시연 Show는 `CUE_DB_PATH`를 `data/demo.sqlite3`으로 지정해 열 수 있습니다.
 - 실습 가상환경에 동일한 의존성이 이미 설치되어 있다면, `CueServer`에서 아래 명령으로 실행할 수 있습니다. `-B`는 실습 가상환경에 바이트코드 캐시를 쓰지 않도록 합니다.
 
 ```powershell
@@ -70,3 +70,21 @@ Remove-NetFirewallRule -Name 'CueServer-LAN-Demo-8001' -PolicyStore PersistentSt
 ```
 
 테스트는 각각 임시 SQLite 파일을 사용합니다. `examples/cue-list.json`은 관리자에서 010·020·030 순서로 정렬한 시연 Show의 다운로드 예시입니다. Camera Blend와 Lighting Fade는 밀리초 단위로 저장됩니다. 지정 시간에 따른 재생과 동시 편집 충돌 제어는 P1 범위입니다.
+
+## 자동 Cue 번호 정책 (2026-11-19)
+
+- Cue의 고유 식별자는 UUID id이며 number는 position과 같은 표시용 정수입니다. 생성·수정 요청에 number를 보내지 않습니다. 직접 보내면 422로 거절합니다. 조회 응답의 number 필드와 schemaVersion 2는 유지합니다.
+- 생성·삭제·순서 변경과 번호 재지정, 새 Revision 발행은 기존 SQLite 트랜잭션 안에서 함께 처리합니다. 실패하면 전체가 롤백됩니다.
+- 서버 시작 시 기존 Cue를 저장된 Position 순서로 재번호화합니다. ID·이름·연출·Blend/Fade는 보존하고, 영향받은 Show만 새 Revision을 한 번 발행합니다. 재시작을 반복해도 추가 Revision을 만들지 않습니다. 과거 v2 Revision 스냅샷의 번호는 이력으로 보존합니다.
+- Unreal은 새 REFRESH를 통해 새 Revision과 번호를 받습니다. 기존 로컬 스냅샷은 REFRESH 전까지 유지되며, CueData.Number는 Integer이고 기존 3자리 표시를 그대로 사용합니다. Blueprint나 C++ 변경은 필요하지 않습니다.
+- examples/cue-list.json은 이전 번호 정책 스냅샷의 호환성 테스트 자료로 보존합니다. 최신 번호는 실제 Show의 cue-list API로 확인합니다. 기존 cues.sqlite3을 유지하며 demo.sqlite3으로 전환하지 않습니다.
+
+## Camera Stage와 전환 시간 범위 (2026-11-19)
+
+Camera는 Full / Upper / Close / Stage를 지원합니다. Stage는 기존 Unreal Stage View Override를 의미하며 E_CameraState에 새 Enum 값을 추가하는 설계가 아닙니다. 웹과 서버는 기존 cameraState에 문자열 Stage를 저장·조회·다운로드합니다.
+
+Cue별 Camera Blend / Lighting Fade / Transition Time 입력과 지정 시간 실행 기능은 이번 개발 범위에서 제외합니다. Cue는 Animation·Camera·Lighting·Appearance 목표 상태를 전달합니다. 기존 Studio 카메라·조명 시스템은 변경하지 않습니다.
+
+cameraBlendMs / lightingFadeMs는 호환 데이터로 DB와 API 응답에 유지합니다. 생성 요청에서 생략하면 0, PATCH에서 생략하면 기존 값을 보존합니다. 기존 클라이언트가 보낸 유효한 시간 값도 저장할 수 있습니다. 웹에서는 입력·수정을 제공하지 않고 복제 시에만 원본의 숨겨진 시간 값을 함께 보존합니다. DB 스키마 변경이나 기존 값 초기화는 없습니다.
+
+현재 Unreal C++ CueJson 파서는 Camera를 Full/Upper/Close로 제한합니다. **Stage Cue가 포함된 목록은 C++ 허용 목록에 Stage를 추가하기 전까지 Unreal REFRESH 검증에 실패합니다.** 이번 웹·서버 범위에서는 이 파일이나 .uasset을 수정하지 않았습니다. 후속 연결에서 파싱 허용 후 CameraState == Stage이면 별도 Stage View 기능을 호출하고, 나머지 값은 Stage View 해제 후 기존 Camera State 경로로 전달합니다.

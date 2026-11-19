@@ -5,13 +5,12 @@ const showSelect = $("show-select");
 const showDialog = $("show-dialog");
 const decision = $("decision");
 const defaults = {
-  number: 10, name: "", animationState: "Idle", cameraState: "Full", lightingState: "Neutral",
-  appearancePreset: "Preset_01", cameraBlendMs: 0, lightingFadeMs: 0,
+  name: "", animationState: "Idle", cameraState: "Full", lightingState: "Neutral",
+  appearancePreset: "Preset_01",
 };
 const labels = {
-  number: "번호", name: "이름", animationState: "Animation", cameraState: "Camera",
+  name: "이름", animationState: "Animation", cameraState: "Camera",
   lightingState: "Lighting", appearancePreset: "Appearance",
-  cameraBlendMs: "Camera Blend", lightingFadeMs: "Lighting Fade",
 };
 const symbols = { saved: "✓", error: "!", dirty: "✎", busy: "◌" };
 
@@ -340,19 +339,11 @@ function discardChanges() {
   status("저장된 내용으로 돌아왔습니다.");
 }
 
-function suggestNumber(after = 0) {
-  const used = new Set(current.cues.map((cue) => cue.number));
-  for (let number = after + 10; number <= 999999; number += 10) {
-    if (!used.has(number)) return number;
-  }
-  let number = 1;
-  while (used.has(number)) number++;
-  return number;
-}
-
 function openDraft(source) {
-  const values = { ...(source ?? defaults), number: suggestNumber(source?.number) };
-  openEditor(null, { title: source ? `Cue ${formatNumber(source.number)}의 복제 초안` : "새 Cue 초안", values, previousId: selected?.id });
+  const values = Object.fromEntries(Object.keys(defaults).map((field) => [field, (source ?? defaults)[field]]));
+  // Preserve stored transition data when cloning, without exposing transition controls.
+  const preservedTimes = source ? { cameraBlendMs: source.cameraBlendMs, lightingFadeMs: source.lightingFadeMs } : {};
+  openEditor(null, { title: source ? `Cue ${formatNumber(source.number)}의 복제 초안` : "새 Cue 초안", values, preservedTimes, previousId: selected?.id });
   status("저장 전 변경 · 초안", "dirty");
   $("cue-name").focus();
   $("cue-name").select();
@@ -365,15 +356,8 @@ function cuePayload() {
   if (!data.name || [...data.name].length > 100) {
     fieldErrors.push({ field: "name", message: "이름을 1~100자로 입력하세요." });
   }
-  for (const [field, min, max] of [["number", 1, 999999], ["cameraBlendMs", 0, 30000], ["lightingFadeMs", 0, 30000]]) {
-    const number = Number(data[field]);
-    if (data[field] === "" || !Number.isInteger(number) || number < min || number > max) {
-      fieldErrors.push({ field, message: `${min}~${max} 사이의 정수를 입력하세요.` });
-    }
-    data[field] = number;
-  }
   if (fieldErrors.length) throw Object.assign(new Error("입력값을 확인하세요."), { fieldErrors });
-  return data;
+  return { ...data, ...draft?.preservedTimes };
 }
 
 async function saveCue() {
