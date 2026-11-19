@@ -203,7 +203,7 @@ bool CueJson::ParseSnapshot(const FString& Json, const FString& ExpectedShowId, 
             !Integer(CueObject, TEXT("position"), 1, 1000, Cue.Position, Error) ||
             !Integer(CueObject, TEXT("number"), 1, 999999, Cue.Number, Error) || !Name(CueObject, TEXT("name"), Cue.Name, Error) ||
             !State(CueObject, TEXT("animationState"), {TEXT("Idle"), TEXT("Talk"), TEXT("Dance")}, Cue.AnimationState, Error) ||
-            !State(CueObject, TEXT("cameraState"), {TEXT("Full"), TEXT("Upper"), TEXT("Close")}, Cue.CameraState, Error) ||
+            !State(CueObject, TEXT("cameraState"), {TEXT("Full"), TEXT("Upper"), TEXT("Close"), TEXT("Stage")}, Cue.CameraState, Error) ||
             !State(CueObject, TEXT("lightingState"), {TEXT("Neutral"), TEXT("Focus"), TEXT("Stage")}, Cue.LightingState, Error) ||
             !State(CueObject, TEXT("appearancePreset"), {TEXT("Preset_01"), TEXT("Preset_02"), TEXT("Preset_03"), TEXT("Preset_04"), TEXT("Preset_05")}, Cue.AppearancePreset, Error) ||
             !Integer(CueObject, TEXT("cameraBlendMs"), 0, 30000, Cue.CameraBlendMs, Error) ||

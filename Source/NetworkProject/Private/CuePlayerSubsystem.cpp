@@ -44,8 +44,7 @@ void UCuePlayerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
     CacheDirectory = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("CuePlayer"));
-    FString Error;
-    RestoreSelectedSnapshot(Error); // Local only; there is no automatic HTTP or scene command.
+    // A new Play session starts unselected. Cache is used only after explicit Show selection.
 }
 
 void UCuePlayerSubsystem::Deinitialize()
@@ -197,10 +196,9 @@ bool UCuePlayerSubsystem::RestoreSelectedSnapshot(FString& Error)
     if (bShuttingDown) { Error = TEXT("Cue subsystem is shutting down."); return false; }
     CancelCueRequest();
     FCueCache Cache(CacheDirectory);
-    if (Status.SelectedShowId.IsEmpty() && !Cache.LoadSelection(Status.SelectedShowId, Error))
+    if (Status.SelectedShowId.IsEmpty())
     {
-        Status.CacheError = Error;
-        PublishStatus();
+        Error = TEXT("Select a Show before restoring its cached snapshot.");
         return false;
     }
     FCueSnapshot Cached;

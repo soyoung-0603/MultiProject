@@ -66,6 +66,45 @@ bool FCueJsonContractTest::RunTest(const FString& Parameters)
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCueCameraContractTest, "NetworkProject.Cue.CameraContract",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCueCameraContractTest::RunTest(const FString& Parameters)
+{
+    FString Body, Error;
+    if (!TestTrue(TEXT("Read shared fixture"), FFileHelper::LoadFileToString(Body,
+        *(FPaths::ProjectDir() / TEXT("CueServer/examples/cue-list.json"))))) return false;
+    const FString ShowId = TEXT("f872900c-9595-44b7-b312-5c47e45c647b");
+    FCueSnapshot Snapshot;
+    for (const TCHAR* Camera : {TEXT("Full"), TEXT("Upper"), TEXT("Close"), TEXT("Stage")})
+    {
+        // The third Cue reproduces a Stage failure after two valid Cues.
+        FString CameraBody = Body;
+        const int32 LastCamera = CameraBody.Find(TEXT("\"cameraState\": \"Full\""), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+        if (!TestTrue(TEXT("Find third Cue camera"), LastCamera != INDEX_NONE)) return false;
+        CameraBody.RemoveAt(LastCamera, FString(TEXT("\"cameraState\": \"Full\"")).Len());
+        CameraBody.InsertAt(LastCamera, FString::Printf(TEXT("\"cameraState\": \"%s\""), Camera));
+        if (!TestTrue(*FString::Printf(TEXT("Accept Camera %s"), Camera),
+            CueJson::ParseSnapshot(CameraBody, ShowId, Snapshot, Error))) continue;
+        TestEqual(TEXT("Keep the complete Show"), Snapshot.Cues.Num(), 3);
+        TestEqual(TEXT("Preserve Camera token spelling"), Snapshot.Cues[2].CameraState.ToString(), FString(Camera));
+        TestEqual(TEXT("Keep earlier Camera"), Snapshot.Cues[1].CameraState.ToString(), FString(TEXT("Upper")));
+    }
+    // Seed a known valid snapshot so rejection must preserve it atomically.
+    if (!TestTrue(TEXT("Seed previous snapshot"), CueJson::ParseSnapshot(Body, ShowId, Snapshot, Error))) return false;
+    for (const TCHAR* Camera : {TEXT("Wide"), TEXT("stage"), TEXT("STAGE"), TEXT("Stage "), TEXT("")})
+    {
+        const FString Invalid = Body.Replace(TEXT("\"cameraState\": \"Upper\""),
+            *FString::Printf(TEXT("\"cameraState\": \"%s\""), Camera), ESearchCase::CaseSensitive);
+        TestFalse(*FString::Printf(TEXT("Reject invalid Camera '%s'"), Camera),
+            CueJson::ParseSnapshot(Invalid, ShowId, Snapshot, Error));
+        TestTrue(TEXT("Report offending Camera and Cue"), Error.StartsWith(TEXT("Cue position 2: Unsupported cameraState:")));
+        TestEqual(TEXT("Failed parse preserves all previous Cues"), Snapshot.Cues.Num(), 3);
+        TestEqual(TEXT("Failed parse preserves previous Camera"), Snapshot.Cues[1].CameraState.ToString(), FString(TEXT("Upper")));
+    }
+    return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCueUnicodeTimestampTest, "NetworkProject.Cue.UnicodeTimestamp",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 

@@ -81,7 +81,30 @@ bool FCueHttpContractTest::RunTest(const FString& Parameters)
     const FDateTime LastSuccess = Player->GetStatus().LastSuccessfulRefreshUtc;
     TestTrue(TEXT("Local data available"), Player->GetStatus().bCanUseLocalSnapshot);
 
-    for (const FString& Scenario : {FString(TEXT("bad")), FString(TEXT("error")), FString(TEXT("wrong-show")), FString(TEXT("large"))})
+    const FString StageShowId = TEXT("00000000-0000-0000-0000-000000000002");
+    Settings->ServerBaseUrl = FixtureUrl / TEXT("stage");
+    if (!TestTrue(TEXT("Select Show containing Stage"), Player->SelectShow(StageShowId, Error))) return false;
+    TestTrue(TEXT("Refresh Stage Show over HTTP"), Player->RefreshCueList());
+    TestTrue(TEXT("Stage REFRESH completes"), PumpUntil([&] { return Player->GetStatus().CueListRequestState != ECueRequestState::Requesting; }));
+    TestEqual(TEXT("Stage REFRESH succeeds"), Player->GetStatus().CueListRequestState, ECueRequestState::Succeeded);
+    if (TestTrue(TEXT("Stage Show is available"), Player->GetSnapshot(Snapshot)) &&
+        TestEqual(TEXT("Stage Show retains all Cues"), Snapshot.Cues.Num(), 3))
+        TestEqual(TEXT("HTTP preserves Stage token"), Snapshot.Cues[2].CameraState.ToString(), FString(TEXT("Stage")));
+
+    for (int32 Switch = 0; Switch < 3; ++Switch)
+    {
+        TestTrue(TEXT("Return to normal Show offline"), Player->SelectShow(ShowId, Error));
+        if (TestTrue(TEXT("Normal Show restores from cache"), Player->GetSnapshot(Snapshot)) &&
+            TestEqual(TEXT("Normal Show keeps all Cues"), Snapshot.Cues.Num(), 3))
+            TestEqual(TEXT("Normal Camera survives switching"), Snapshot.Cues[2].CameraState.ToString(), FString(TEXT("Full")));
+        TestTrue(TEXT("Return to Stage Show offline"), Player->SelectShow(StageShowId, Error));
+        if (TestTrue(TEXT("Stage Show restores from cache"), Player->GetSnapshot(Snapshot)) &&
+            TestEqual(TEXT("Cached Stage Show keeps all Cues"), Snapshot.Cues.Num(), 3))
+            TestEqual(TEXT("Cache preserves Stage token"), Snapshot.Cues[2].CameraState.ToString(), FString(TEXT("Stage")));
+    }
+    TestTrue(TEXT("Return to original Show for failure tests"), Player->SelectShow(ShowId, Error));
+
+    for (const FString& Scenario : {FString(TEXT("bad")), FString(TEXT("error")), FString(TEXT("wrong-show")), FString(TEXT("large")), FString(TEXT("invalid-camera"))})
     {
         Settings->ServerBaseUrl = FixtureUrl / Scenario;
         TestTrue(TEXT("Start failing REFRESH"), Player->RefreshCueList());
@@ -130,11 +153,24 @@ bool FCueHttpContractTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Disk retains newest verified revision"), Snapshot.Revision, 7);
 
     auto* Restarted = NewObject<UCuePlayerSubsystem>(Instance);
+    FSubsystemCollection<UGameInstanceSubsystem> Collection;
+    Restarted->Initialize(Collection);
+    TestTrue(TEXT("Initialize starts without a selected Show"), Restarted->GetStatus().SelectedShowId.IsEmpty());
+    TestFalse(TEXT("Initialize starts without a snapshot"), Restarted->GetSnapshot(Snapshot));
     FCueSubsystemTestAccess::SetDirectory(Restarted, Root);
-    TestTrue(TEXT("Fresh subsystem restores saved selection without HTTP"), Restarted->RestoreSelectedSnapshot(Error));
-    TestEqual(TEXT("Fresh subsystem selection"), Restarted->GetStatus().SelectedShowId, ShowId);
-    TestTrue(TEXT("Fresh subsystem restores snapshot"), Restarted->GetSnapshot(Snapshot));
+    TestFalse(TEXT("Fresh subsystem cannot restore an unselected Show"), Restarted->RestoreSelectedSnapshot(Error));
+    TestTrue(TEXT("Saved selection is not automatically selected"), Restarted->GetStatus().SelectedShowId.IsEmpty());
+    TestFalse(TEXT("Fresh subsystem has no displayed snapshot"), Restarted->GetSnapshot(Snapshot));
+    TestFalse(TEXT("Fresh subsystem has no local readiness"), Restarted->GetStatus().bCanUseLocalSnapshot);
+    TestTrue(TEXT("Fresh subsystem requests Show options"), Restarted->RequestShows());
+    PumpUntil([&] { return Restarted->GetStatus().ShowListRequestState != ECueRequestState::Requesting; });
+    TestEqual(TEXT("Show options still load"), Restarted->GetShows().Num(), 1);
+    TestTrue(TEXT("Show options do not select the first Show"), Restarted->GetStatus().SelectedShowId.IsEmpty());
+    TestFalse(TEXT("Loading options keeps Cue List empty"), Restarted->GetSnapshot(Snapshot));
+    TestTrue(TEXT("Operator can explicitly select cached Show"), Restarted->SelectShow(ShowId, Error));
+    TestTrue(TEXT("Explicit selection restores cached snapshot"), Restarted->GetSnapshot(Snapshot));
     TestEqual(TEXT("Fresh subsystem restored revision"), Snapshot.Revision, 7);
+    TestTrue(TEXT("Explicitly selected Show can still be restored"), Restarted->RestoreSelectedSnapshot(Error));
     Restarted->Deinitialize();
 
     Player->RefreshCueList();

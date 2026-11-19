@@ -24,7 +24,7 @@ Blueprint에서 Cue Player Subsystem을 검색해 GameInstance Subsystems 메뉴
 | Get Cue Player Status | GetStatus | Target | Return Value: Cue Player Status |
 | Get Cue Server Base URL | GetServerBaseUrl | Target | Return Value: String |
 
-조회/REFRESH의 Return Value는 요청을 시작했는지이며 다운로드 성공이 아니다. 결과는 delegate로 받는다. Select Show의 true는 선택 ID 저장 성공이다. 새 Show의 캐시가 없더라도 true일 수 있으므로 Get Cue Snapshot/Status로 데이터 여부를 확인한다. Restore Selected Snapshot은 디스크만 읽고 HTTP를 호출하지 않는다. 초기화 때 저장된 선택과 스냅샷을 자동 복원하므로 Widget이 만들어진 뒤에는 Getter로 현재 상태를 읽어야 한다.
+조회/REFRESH의 Return Value는 요청을 시작했는지이며 다운로드 성공이 아니다. 결과는 delegate로 받는다. Select Show의 true는 선택 ID 저장 성공이다. 새 Show의 캐시가 없더라도 true일 수 있으므로 Get Cue Snapshot/Status로 데이터 여부를 확인한다. Restore Selected Snapshot은 현재 세션에서 선택한 Show의 디스크 캐시만 읽고 HTTP를 호출하지 않는다. Play 초기화는 미선택 상태이며 이전 Show ID를 자동 복원하지 않는다.
 
 ## BlueprintAssignable Delegate
 
@@ -57,6 +57,8 @@ Blueprint 타입 대응은 FString=String, FName=Name, int32=Integer, bool=Boole
 
 ## WBP_Operator 초기화 순서
 
+미선택 시작 상태와 정확한 버튼/ComboBox 연결은 [CueStartupBlueprint.md](CueStartupBlueprint.md)를 따른다.
+
 Widget 변수로 CuePlayerRef, ShowOptions(Cue Show Info Array), ShowLabels(String Array), bUpdatingShowOptions(Boolean), 생성된 Cue Item 참조 배열을 둔다. 기존 Widget 이름은 사용자의 실제 Widget 참조를 사용한다.
 
 ```text
@@ -66,10 +68,7 @@ Event On Initialized
  → Bind Event to On Snapshot Changed
  → Bind Event to On Refresh Completed
  → Bind Event to On Status Changed
- → Get Cue Player Status → 초기 상태 텍스트 갱신
- → Get Cue Snapshot → Branch(Return Value)
-     True: 아래 RebuildCueList(Snapshot) 실행, 복원된 Show 이름/ID도 ComboBox에 표시
-     False: 목록 없음 표시
+ → InitializeCueStartupUI (미선택, 빈 목록, STANDBY/NONE, GO/RESET 비활성)
  → Request Shows
 ```
 
@@ -89,7 +88,8 @@ OnShowsReceived(Success, Shows, Error)
          → Break Cue Show Info
          → Label = Name + " [" + Id + "]"
          → Add(Label) to ShowLabels → ComboBox Add Option(Label)
-       Get Cue Player Status.SelectedShowId와 같은 Id의 옵션을 Set Selected Option
+       SelectedShowId가 비었으면 Clear Selection + Select Show 표시
+       비어 있지 않으면 같은 Id의 옵션만 Set Selected Option (첫 옵션 자동 선택 금지)
        Set bUpdatingShowOptions = false
 ```
 

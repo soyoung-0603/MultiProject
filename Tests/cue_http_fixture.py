@@ -22,6 +22,11 @@ class Handler(BaseHTTPRequestHandler):
             snapshot['revision'] = 7
         if scenario == 'wrong-show':
             snapshot['showId'] = '00000000-0000-0000-0000-000000000001'
+        if scenario == 'stage':
+            snapshot['showId'] = '00000000-0000-0000-0000-000000000002'
+            snapshot['cues'][2]['cameraState'] = 'Stage'
+        if scenario == 'invalid-camera':
+            snapshot['cues'][2]['cameraState'] = 'Wide'
         payload = snapshot if route.endswith('/cue-list') else [{
             'id': SNAPSHOT['showId'], 'name': 'Fixture Show', 'revision': 6,
             'createdAt': '2026-11-17T00:00:00Z', 'updatedAt': '2026-11-18T00:00:00Z',

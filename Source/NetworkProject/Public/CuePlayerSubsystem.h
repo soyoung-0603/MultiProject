@@ -32,6 +32,7 @@ public:
     UFUNCTION(BlueprintCallable, Category="Cue Player", meta=(DisplayName="Refresh Cue List"))
     bool RefreshCueList();
 
+    // Restores only the Show explicitly selected in this session; never loads a saved selection.
     UFUNCTION(BlueprintCallable, Category="Cue Player", meta=(DisplayName="Restore Selected Snapshot"))
     bool RestoreSelectedSnapshot(FString& Error);
 
